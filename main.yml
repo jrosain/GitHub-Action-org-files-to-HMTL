@@ -1,0 +1,50 @@
+name: Exporting org-mode to HTML
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Emacs
+        uses: jcs090218/setup-emacs@master
+
+      - name: Export Org files to GitHub pages
+        shell: 'script --return --quiet --command "bash {0}"'
+        run: |
+          for f in `find src -name "*.org"`
+          do
+            emacs --script .github/workflows/init.el "$f"
+            realfile=$(echo "${f%.org}.html" | sed 's/src/html/g')
+            mkdir --parents $(dirname "$realfile"); mv "${f%.org}.html" "$realfile"
+            # Comment this line if you don't want to add a custom css file
+            sed -i -e '/<head>/a<link rel="stylesheet" href="/Homotopy-Finiteness/style.css"' "$realfile"
+          done
+          # Comment this line if you don't have an index file
+          mv .github/workflows/index.html html/index.html
+          # Comment this line if you don't have a custom stylesheet.
+          mv .github/workflows/style.css html/style.css
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v3
+
+      - name: Upload Artifact
+        uses: actions/upload-pages-artifact@v1
+        with:
+          path: "./html"
+
+      - name: Deployment
+        id: deployment
+        uses: actions/deploy-pages@v3
